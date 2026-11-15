@@ -1,3 +1,5 @@
+> **这是 MC 26.3 的修复分支**：基于上游 `36d7522`（4.0.1-RELEASE），修复「村民工作方块 / 床的追踪线只显示两端方框」与「开光影时村民头顶信息渲染出橙灰刀片」两个 26.3 渲染问题。构建产物见 [Releases](https://github.com/Nnhtomoto/MasaGadget-mc26.3-fix/releases/latest)，上游项目见 [plusls/MasaGadget](https://github.com/plusls/MasaGadget)。
+
 # Masa Gadget
 
 [![License](https://img.shields.io/github/license/plusls/MasaGadget?style=flat-square)](https://github.com/plusls/MasaGadget/blob/main/LICENSE)
