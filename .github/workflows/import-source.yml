@@ -1,0 +1,30 @@
+name: import-source
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch fixed source archive
+        run: |
+          curl -fsSL -o /tmp/src.zip "https://github.com/Nnhtomoto/MasaGadget/releases/download/v4.0.1-mc26.3-fix1/MasaGadget-mc26.3-fix-source.zip"
+          mkdir -p /tmp/src
+          unzip -q /tmp/src.zip -d /tmp/src
+          ls /tmp/src | head -20
+      - name: Replace repository content with the fixed sources
+        run: |
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          rsync -a --exclude '.git' --exclude '.github' /tmp/src/ ./
+          sed -i 's# --patch-module jdk.zipfs=.*##' gradle.properties || true
+          git config user.name "Nnhtomoto"
+          git config user.email "Nnhtomoto@users.noreply.github.com"
+          git add -A
+          git commit -m "Import MasaGadget MC 26.3 fixed sources (upstream 36d7522 + trace/shader fixes)"
+          git push origin HEAD:main
