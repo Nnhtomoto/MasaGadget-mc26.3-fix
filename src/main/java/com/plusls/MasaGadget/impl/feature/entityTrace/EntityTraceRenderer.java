@@ -15,6 +15,7 @@ import top.hendrixshen.magiclib.api.render.context.LevelRenderContext;
 import top.hendrixshen.magiclib.impl.render.context.RenderGlobal;
 
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.npc.villager.Villager;
@@ -57,6 +58,10 @@ public class EntityTraceRenderer implements RenderEntityListener, RenderLevelLis
 
                 if (Configs.renderVillageHomeTracer.getBooleanValue()) {
                     villager.getBrain().getMemory(MemoryModuleType.HOME).ifPresent(globalPos -> {
+                        if (!isPoiTargetValid(level, globalPos)) {
+                            return;
+                        }
+
                         Vec3 eyeVec3 = entity.getEyePosition(partialTick);
                         Vec3 bedVec3 = new Vec3(globalPos.pos().getX() + 0.5, globalPos.pos().getY() + 0.5, globalPos.pos().getZ() + 0.5);
                         RenderGlobal.disableDepthTest();
@@ -70,6 +75,10 @@ public class EntityTraceRenderer implements RenderEntityListener, RenderLevelLis
 
                 if (Configs.renderVillageJobSiteTracer.getBooleanValue()) {
                     villager.getBrain().getMemory(MemoryModuleType.JOB_SITE).ifPresent(globalPos -> {
+                        if (!isPoiTargetValid(level, globalPos)) {
+                            return;
+                        }
+
                         Vec3 eyeVec3 = entity.getEyePosition(partialTick);
                         Vec3 jobVev3 = new Vec3(globalPos.pos().getX() + 0.5, globalPos.pos().getY() + 0.5, globalPos.pos().getZ() + 0.5);
                         RenderGlobal.disableDepthTest();
@@ -84,5 +93,33 @@ public class EntityTraceRenderer implements RenderEntityListener, RenderLevelLis
         }
 
         this.queue.clear();
+    }
+
+    /**
+     * Check whether the remembered point of interest still exists in the world.
+     * Villagers keep their HOME / JOB_SITE memory even after the bed or workstation is destroyed,
+     * which used to leave a tracer line pointing at the old position.
+     */
+    private static boolean isPoiTargetValid(ClientLevel level, GlobalPos globalPos) {
+        //#if MC >= 12000
+        if (level == null || globalPos == null) {
+            return true;
+        }
+
+        if (!globalPos.dimension().equals(level.dimension())) {
+            return false;
+        }
+
+        net.minecraft.core.BlockPos blockPos = globalPos.pos();
+
+        // The chunk is not loaded on the client, we cannot tell, so keep the original behaviour.
+        if (!level.hasChunkAt(blockPos)) {
+            return true;
+        }
+
+        return net.minecraft.world.entity.ai.village.poi.PoiTypes.hasPoi(level.getBlockState(blockPos));
+        //#else
+        //$$ return true;
+        //#endif
     }
 }
