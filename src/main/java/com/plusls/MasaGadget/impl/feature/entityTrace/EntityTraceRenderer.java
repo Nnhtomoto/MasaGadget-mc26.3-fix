@@ -102,24 +102,65 @@ public class EntityTraceRenderer implements RenderEntityListener, RenderLevelLis
      */
     private static boolean isPoiTargetValid(ClientLevel level, GlobalPos globalPos) {
         //#if MC >= 12000
-        if (level == null || globalPos == null) {
+        if (globalPos == null) {
             return true;
-        }
-
-        if (!globalPos.dimension().equals(level.dimension())) {
-            return false;
         }
 
         net.minecraft.core.BlockPos blockPos = globalPos.pos();
 
-        // The chunk is not loaded on the client, we cannot tell, so keep the original behaviour.
-        if (!level.hasChunkAt(blockPos)) {
+        if (level != null && !globalPos.dimension().equals(level.dimension())) {
+            return false;
+        }
+
+        Boolean clientCheck = null;
+        if (level != null && level.hasChunkAt(blockPos)) {
+            clientCheck = net.minecraft.world.entity.ai.village.poi.PoiTypes.hasPoi(level.getBlockState(blockPos));
+        }
+
+        Boolean serverCheck = null;
+        net.minecraft.client.server.IntegratedServer server =
+                net.minecraft.client.Minecraft.getInstance().getSingleplayerServer();
+        if (server != null) {
+            net.minecraft.server.level.ServerLevel serverLevel = server.getLevel(globalPos.dimension());
+            if (serverLevel != null && serverLevel.hasChunkAt(blockPos)) {
+                serverCheck = serverLevel.getPoiManager().getType(blockPos).isPresent();
+            }
+        }
+
+        // Neither side knows the answer (chunk not loaded), keep the original behaviour.
+        if (clientCheck == null && serverCheck == null) {
             return true;
         }
 
-        return net.minecraft.world.entity.ai.village.poi.PoiTypes.hasPoi(level.getBlockState(blockPos));
+        if (Boolean.TRUE.equals(clientCheck) || Boolean.TRUE.equals(serverCheck)) {
+            return true;
+        }
+
+        logSuppressed(level, globalPos, clientCheck, serverCheck);
+        return false;
         //#else
         //$$ return true;
         //#endif
+    }
+
+    private static final java.util.Map<Long, Long> SUPPRESSED_LAST = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final org.slf4j.Logger TRACE_DEBUG = org.slf4j.LoggerFactory.getLogger("masa_gadget_trace");
+
+    private static void logSuppressed(ClientLevel level, GlobalPos globalPos, Boolean clientCheck, Boolean serverCheck) {
+        net.minecraft.core.BlockPos blockPos = globalPos.pos();
+        long key = blockPos.asLong();
+        long now = System.currentTimeMillis();
+        Long prev = SUPPRESSED_LAST.get(key);
+        if (prev != null && now - prev < 10000L) {
+            return;
+        }
+        if (SUPPRESSED_LAST.size() > 512) {
+            SUPPRESSED_LAST.clear();
+        }
+        SUPPRESSED_LAST.put(key, now);
+        TRACE_DEBUG.info("MGTD|suppress pos={},{},{}|dim={}|client={}|server={}|state={}",
+                blockPos.getX(), blockPos.getY(), blockPos.getZ(), globalPos.dimension().identifier(),
+                clientCheck, serverCheck,
+                level == null ? "?" : String.valueOf(level.getBlockState(blockPos)));
     }
 }
